@@ -11,7 +11,7 @@ app.use("*", async (c, next) => {
   return cors({
     origin: c.env.ALLOWED_ORIGIN,
     allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   })(c, next);
 });
 
