@@ -28,10 +28,12 @@ GET  /health                → { ok: true }
 `user_auth_providers` table: (user_id, provider, provider_sub). Add rows for other providers without changing `users` table.
 
 ## Schema
-`src/db/schema.sql` — run migrations:
+Migrations live in `migrations/` (wrangler D1 format). `src/db/schema.sql` is reference only.
+
+Add new migrations as `migrations/NNNN_description.sql`, then run:
 ```bash
-npm run db:migrate:local   # local D1
-npm run db:migrate         # production D1
+npm run db:migrate:local    # local D1
+npm run db:migrate:remote   # production D1
 ```
 
 ## Env / wrangler.toml
