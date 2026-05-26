@@ -1,0 +1,16 @@
+name = "run-api"
+main = "src/index.ts"
+compatibility_date = "2025-10-08"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rurana-db"
+database_id = "REPLACE_WITH_D1_ID"
+
+[vars]
+JWT_SECRET = "REPLACE_WITH_SECRET"
+GOOGLE_CLIENT_ID = "REPLACE_WITH_GOOGLE_CLIENT_ID"

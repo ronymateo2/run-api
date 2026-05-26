@@ -1,0 +1,23 @@
+{
+  "name": "run-api",
+  "description": "Rurana API — Cloudflare Worker + D1",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 execute rurana-db --file=src/db/schema.sql",
+    "db:migrate:local": "wrangler d1 execute rurana-db --local --file=src/db/schema.sql",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "4.11.1",
+    "jose": "5.10.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251217.0",
+    "typescript": "5.8.3",
+    "wrangler": "4.56.0"
+  }
+}
