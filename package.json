@@ -7,8 +7,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:migrate": "wrangler d1 execute rurana-db --remote --file=src/db/schema.sql",
-    "db:migrate:local": "wrangler d1 execute rurana-db --local --file=src/db/schema.sql",
+    "db:create": "wrangler d1 create rurana-db",
+    "db:migrate:local": "wrangler d1 migrations apply rurana-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply rurana-db --remote",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {

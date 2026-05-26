@@ -6,8 +6,10 @@ declare namespace Cloudflare {
 		mainModule: typeof import("./src/index");
 	}
 	interface Env {
-		JWT_SECRET: "REPLACE_WITH_SECRET";
-		GOOGLE_CLIENT_ID: "REPLACE_WITH_GOOGLE_CLIENT_ID";
+		JWT_SECRET: string;
+		GOOGLE_CLIENT_ID: string;
+		ALLOWED_ORIGIN: string;
+		APP_URL: string;
 		DB: D1Database;
 	}
 }

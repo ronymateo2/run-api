@@ -7,14 +7,13 @@ import phasesRoutes from "./routes/phases";
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use(
-  "*",
-  cors({
-    origin: ["http://localhost:5173", "https://run-web.workers.dev"],
+app.use("*", async (c, next) => {
+  return cors({
+    origin: c.env.ALLOWED_ORIGIN,
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  })
-);
+  })(c, next);
+});
 
 app.get("/health", (c) => c.json({ ok: true }));
 

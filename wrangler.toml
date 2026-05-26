@@ -10,3 +10,7 @@ enabled = true
 binding = "DB"
 database_name = "rurana-db"
 database_id = "b11141de-140a-4e55-bbd9-4cdeb8eeacf9"
+
+[vars]
+ALLOWED_ORIGIN = "https://run-web.ronymateo.workers.dev"
+APP_URL = "https://run-web.ronymateo.workers.dev"

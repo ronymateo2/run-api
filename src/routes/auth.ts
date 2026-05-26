@@ -51,7 +51,7 @@ auth.post("/google", async (c) => {
     `SELECT u.* FROM users u
      JOIN user_auth_providers p ON p.user_id = u.id
      WHERE p.provider = 'google' AND p.provider_sub = ?`
-  ).bind(googleSub).first<{ id: string; email: string; name: string }>();
+  ).bind(googleSub).first<{ id: string; email: string; name: string; timezone: string | null }>();
 
   let userId: string;
 
@@ -80,7 +80,7 @@ auth.post("/google", async (c) => {
 
   return c.json({
     token,
-    user: { id: userId, email, name, avatar_url: picture },
+    user: { id: userId, email, name, avatar_url: picture, timezone: existing?.timezone ?? null },
   });
 });
 
