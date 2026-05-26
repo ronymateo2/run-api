@@ -9,8 +9,4 @@ enabled = true
 [[d1_databases]]
 binding = "DB"
 database_name = "rurana-db"
-database_id = "REPLACE_WITH_D1_ID"
-
-[vars]
-JWT_SECRET = "REPLACE_WITH_SECRET"
-GOOGLE_CLIENT_ID = "REPLACE_WITH_GOOGLE_CLIENT_ID"
+database_id = "b11141de-140a-4e55-bbd9-4cdeb8eeacf9"
