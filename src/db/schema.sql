@@ -53,6 +53,14 @@ CREATE TABLE IF NOT EXISTS phase_criteria (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_criteria_done (
+  user_id TEXT NOT NULL REFERENCES users(id),
+  criteria_id TEXT NOT NULL REFERENCES phase_criteria(id),
+  done INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, criteria_id)
+);
+
 CREATE TABLE IF NOT EXISTS exercises (
   id TEXT PRIMARY KEY,
   phase_id TEXT NOT NULL REFERENCES phases(id),

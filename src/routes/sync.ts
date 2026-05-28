@@ -37,11 +37,17 @@ sync.get("/pull", async (c) => {
        WHERE i.user_id = ? AND e.updated_at > ?`
     ).bind(userId, since).all(),
     c.env.DB.prepare(
-      `SELECT pc.* FROM phase_criteria pc
+      `SELECT pc.id, pc.phase_id, pc.description,
+              COALESCE(ucd.done, pc.done) AS done,
+              CASE WHEN COALESCE(ucd.updated_at, 0) > pc.updated_at
+                   THEN ucd.updated_at ELSE pc.updated_at END AS updated_at
+       FROM phase_criteria pc
+       LEFT JOIN user_criteria_done ucd ON ucd.criteria_id = pc.id AND ucd.user_id = ?
        JOIN phases p ON p.id = pc.phase_id
        JOIN injuries i ON i.id = p.injury_id
-       WHERE i.user_id = ? AND pc.updated_at > ?`
-    ).bind(userId, since).all(),
+       WHERE i.user_id = ?
+         AND (pc.updated_at > ? OR COALESCE(ucd.updated_at, 0) > ?)`
+    ).bind(userId, userId, since, since).all(),
   ]);
 
   return c.json({
@@ -64,6 +70,7 @@ sync.post("/push", async (c) => {
     pain_checkins?: PainCheckinRow[];
     exercise_logs?: ExerciseLogRow[];
     sst_results?: SstResultRow[];
+    criteria_done?: CriteriaDoneRow[];
   }>();
 
   const now = Date.now();
@@ -99,6 +106,16 @@ sync.post("/push", async (c) => {
     );
   }
 
+  for (const row of body.criteria_done ?? []) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO user_criteria_done (user_id, criteria_id, done, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id, criteria_id) DO UPDATE SET done = excluded.done, updated_at = excluded.updated_at`
+      ).bind(userId, row.criteria_id, row.done ? 1 : 0, now)
+    );
+  }
+
   if (statements.length > 0) {
     await c.env.DB.batch(statements);
   }
@@ -118,6 +135,9 @@ interface ExerciseLogRow {
 interface SstResultRow {
   id: string; injury_id: string; date: string;
   strength_score?: number; pain_score?: number; note?: string; created_at?: number;
+}
+interface CriteriaDoneRow {
+  criteria_id: string; done: boolean;
 }
 
 export default sync;
