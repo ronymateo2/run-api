@@ -12,7 +12,7 @@ sync.get("/pull", async (c) => {
   const userId = c.get("userId");
   const since = Number(c.req.query("since") ?? 0);
 
-  const [checkins, logs, sst, injuries, phases, exercises] = await Promise.all([
+  const [checkins, logs, sst, injuries, phases, exercises, phaseCriteria] = await Promise.all([
     c.env.DB.prepare(
       `SELECT * FROM pain_checkins WHERE user_id = ? AND updated_at > ?`
     ).bind(userId, since).all(),
@@ -36,6 +36,12 @@ sync.get("/pull", async (c) => {
        JOIN injuries i ON i.id = p.injury_id
        WHERE i.user_id = ? AND e.updated_at > ?`
     ).bind(userId, since).all(),
+    c.env.DB.prepare(
+      `SELECT pc.* FROM phase_criteria pc
+       JOIN phases p ON p.id = pc.phase_id
+       JOIN injuries i ON i.id = p.injury_id
+       WHERE i.user_id = ? AND pc.updated_at > ?`
+    ).bind(userId, since).all(),
   ]);
 
   return c.json({
@@ -46,6 +52,7 @@ sync.get("/pull", async (c) => {
     injuries: injuries.results,
     phases: phases.results,
     exercises: exercises.results,
+    phase_criteria: phaseCriteria.results,
   });
 });
 
