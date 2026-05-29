@@ -4,6 +4,7 @@ import authRoutes from "./routes/auth";
 import usersRoutes from "./routes/users";
 import syncRoutes from "./routes/sync";
 import phasesRoutes from "./routes/phases";
+import learnRoutes from "./routes/learn";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -21,6 +22,7 @@ app.route("/api/auth", authRoutes);
 app.route("/api/users", usersRoutes);
 app.route("/api/sync", syncRoutes);
 app.route("/api/phases", phasesRoutes);
+app.route("/api/learn", learnRoutes);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
