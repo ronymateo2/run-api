@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS exercise_logs (
   rpe INTEGER,
   note TEXT,
   completed_at INTEGER,
+  deleted_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );

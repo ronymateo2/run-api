@@ -89,10 +89,10 @@ sync.post("/push", async (c) => {
   for (const row of body.exercise_logs ?? []) {
     statements.push(
       c.env.DB.prepare(
-        `INSERT INTO exercise_logs (id, user_id, exercise_id, session_date, reps_done, pain_during, rpe, note, completed_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET reps_done = excluded.reps_done, pain_during = excluded.pain_during, rpe = excluded.rpe, note = excluded.note, updated_at = excluded.updated_at`
-      ).bind(row.id, userId, row.exercise_id, row.session_date, row.reps_done ?? null, row.pain_during ?? null, row.rpe ?? null, row.note ?? null, row.completed_at ?? null, row.created_at ?? now, now)
+        `INSERT INTO exercise_logs (id, user_id, exercise_id, session_date, reps_done, pain_during, rpe, note, completed_at, deleted_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET reps_done = excluded.reps_done, pain_during = excluded.pain_during, rpe = excluded.rpe, note = excluded.note, completed_at = excluded.completed_at, deleted_at = excluded.deleted_at, updated_at = excluded.updated_at`
+      ).bind(row.id, userId, row.exercise_id, row.session_date, row.reps_done ?? null, row.pain_during ?? null, row.rpe ?? null, row.note ?? null, row.completed_at ?? null, row.deleted_at ?? null, row.created_at ?? now, now)
     );
   }
 
@@ -130,7 +130,7 @@ interface PainCheckinRow {
 interface ExerciseLogRow {
   id: string; exercise_id: string; session_date: string;
   reps_done?: number; pain_during?: number; rpe?: number; note?: string;
-  completed_at?: number; created_at?: number;
+  completed_at?: number; deleted_at?: number; created_at?: number;
 }
 interface SstResultRow {
   id: string; injury_id: string; date: string;
