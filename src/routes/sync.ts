@@ -81,7 +81,8 @@ sync.post("/push", async (c) => {
       c.env.DB.prepare(
         `INSERT INTO pain_checkins (id, user_id, injury_id, date, zones, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET zones = excluded.zones, updated_at = excluded.updated_at`
+         ON CONFLICT(id) DO UPDATE SET zones = excluded.zones, updated_at = excluded.updated_at
+         WHERE user_id = excluded.user_id`
       ).bind(row.id, userId, row.injury_id ?? null, row.date, row.zones, row.created_at ?? now, now)
     );
   }
@@ -91,7 +92,8 @@ sync.post("/push", async (c) => {
       c.env.DB.prepare(
         `INSERT INTO exercise_logs (id, user_id, exercise_id, session_date, reps_done, pain_during, rpe, note, completed_at, deleted_at, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET reps_done = excluded.reps_done, pain_during = excluded.pain_during, rpe = excluded.rpe, note = excluded.note, completed_at = excluded.completed_at, deleted_at = excluded.deleted_at, updated_at = excluded.updated_at`
+         ON CONFLICT(id) DO UPDATE SET reps_done = excluded.reps_done, pain_during = excluded.pain_during, rpe = excluded.rpe, note = excluded.note, completed_at = excluded.completed_at, deleted_at = excluded.deleted_at, updated_at = excluded.updated_at
+         WHERE user_id = excluded.user_id`
       ).bind(row.id, userId, row.exercise_id, row.session_date, row.reps_done ?? null, row.pain_during ?? null, row.rpe ?? null, row.note ?? null, row.completed_at ?? null, row.deleted_at ?? null, row.created_at ?? now, now)
     );
   }
@@ -101,7 +103,8 @@ sync.post("/push", async (c) => {
       c.env.DB.prepare(
         `INSERT INTO sst_results (id, user_id, injury_id, date, strength_score, pain_score, note, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET strength_score = excluded.strength_score, pain_score = excluded.pain_score, note = excluded.note, updated_at = excluded.updated_at`
+         ON CONFLICT(id) DO UPDATE SET strength_score = excluded.strength_score, pain_score = excluded.pain_score, note = excluded.note, updated_at = excluded.updated_at
+         WHERE user_id = excluded.user_id`
       ).bind(row.id, userId, row.injury_id, row.date, row.strength_score ?? null, row.pain_score ?? null, row.note ?? null, row.created_at ?? now, now)
     );
   }

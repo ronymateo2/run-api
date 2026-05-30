@@ -14,3 +14,10 @@ database_id = "b11141de-140a-4e55-bbd9-4cdeb8eeacf9"
 [vars]
 ALLOWED_ORIGIN = "https://run-web.ronymateo.workers.dev"
 APP_URL = "https://run-web.ronymateo.workers.dev"
+
+# Rate limit auth endpoint: 10 requests / 60s per client IP
+[[unsafe.bindings]]
+name = "AUTH_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }

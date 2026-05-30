@@ -1,5 +1,8 @@
 import { Hono } from "hono";
+import { setCookie } from "hono/cookie";
 import { SignJWT } from "jose";
+
+const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30d, matches JWT expiry
 
 
 type Bindings = Env;
@@ -33,6 +36,13 @@ async function signJwt(
 }
 
 auth.post("/google", async (c) => {
+  const limiter = (c.env as Env & { AUTH_RATE_LIMITER?: RateLimit }).AUTH_RATE_LIMITER;
+  if (limiter) {
+    const ip = c.req.header("cf-connecting-ip") ?? "unknown";
+    const { success } = await limiter.limit({ key: ip });
+    if (!success) return c.json({ error: "Too many requests" }, 429);
+  }
+
   const { id_token } = await c.req.json<{ id_token: string }>();
   if (!id_token) return c.json({ error: "Missing id_token" }, 400);
 
@@ -78,10 +88,30 @@ auth.post("/google", async (c) => {
 
   const token = await signJwt({ sub: userId, email }, c.env.JWT_SECRET);
 
+  // Primary transport: httpOnly cookie (not readable by JS → no XSS token theft).
+  // SameSite=None + Secure so it is sent on cross-site requests from the web app.
+  setCookie(c, "token", token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "None",
+    path: "/",
+    maxAge: SESSION_MAX_AGE,
+  });
+
   return c.json({
-    token,
     user: { id: userId, email, name, avatar_url: picture, timezone: existing?.timezone ?? null },
   });
+});
+
+auth.post("/logout", (c) => {
+  setCookie(c, "token", "", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "None",
+    path: "/",
+    maxAge: 0,
+  });
+  return c.json({ ok: true });
 });
 
 export default auth;
