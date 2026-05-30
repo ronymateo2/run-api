@@ -47,6 +47,34 @@ const criteriaDoneSchema = z.object({
   done: z.boolean(),
 });
 
+// Admin-style edits: per-user injury fields (current_phase_id, focus_days only),
+// plus full phase + phase_criteria authoring. Ownership is enforced in SQL.
+const injuryEditSchema = z.object({
+  id: z.string().min(1),
+  current_phase_id: z.string().nullish(),
+  focus_days: z.string().nullish(),
+});
+
+const phaseSchema = z.object({
+  id: z.string().min(1),
+  injury_id: z.string().min(1),
+  phase_num: z.number(),
+  name: z.string().min(1),
+  description: z.string().nullish(),
+  week_start: z.number(),
+  week_end: z.number(),
+  threshold_pct: z.number().nullish(),
+  deleted_at: z.number().nullish(),
+});
+
+// No `done` field: per-user done state flows through criteria_done → user_criteria_done.
+const phaseCriteriaSchema = z.object({
+  id: z.string().min(1),
+  phase_id: z.string().min(1),
+  description: z.string().min(1),
+  deleted_at: z.number().nullish(),
+});
+
 // Unknown keys (user_id, synced, updated_at from the client's SELECT *) are
 // stripped by zod's default object parsing — the server never trusts them.
 const pushSchema = z.object({
@@ -54,6 +82,9 @@ const pushSchema = z.object({
   exercise_logs: z.array(exerciseLogSchema).max(MAX_ROWS).optional(),
   sst_results: z.array(sstResultSchema).max(MAX_ROWS).optional(),
   criteria_done: z.array(criteriaDoneSchema).max(MAX_ROWS).optional(),
+  injuries: z.array(injuryEditSchema).max(MAX_ROWS).optional(),
+  phases: z.array(phaseSchema).max(MAX_ROWS).optional(),
+  phase_criteria: z.array(phaseCriteriaSchema).max(MAX_ROWS).optional(),
 });
 
 // GET /sync/pull?since=<unix_ms>
@@ -87,7 +118,7 @@ sync.get("/pull", async (c) => {
        WHERE i.user_id = ? AND e.updated_at > ?`
     ).bind(userId, since).all(),
     c.env.DB.prepare(
-      `SELECT pc.id, pc.phase_id, pc.description,
+      `SELECT pc.id, pc.phase_id, pc.description, pc.deleted_at,
               COALESCE(ucd.done, pc.done) AS done,
               CASE WHEN COALESCE(ucd.updated_at, 0) > pc.updated_at
                    THEN ucd.updated_at ELSE pc.updated_at END AS updated_at
@@ -161,6 +192,59 @@ sync.post("/push", zValidator("json", pushSchema), async (c) => {
          VALUES (?, ?, ?, ?)
          ON CONFLICT(user_id, criteria_id) DO UPDATE SET done = excluded.done, updated_at = excluded.updated_at`
       ).bind(userId, row.criteria_id, row.done ? 1 : 0, now)
+    );
+  }
+
+  // Injuries: only current_phase_id + focus_days are client-editable. UPDATE-only
+  // (no create) and scoped to the owner — name/zone/status/user_id never change.
+  for (const row of body.injuries ?? []) {
+    statements.push(
+      c.env.DB.prepare(
+        `UPDATE injuries SET current_phase_id = ?, focus_days = ?, updated_at = ?
+         WHERE id = ? AND user_id = ?`
+      ).bind(row.current_phase_id ?? null, row.focus_days ?? null, now, row.id, userId)
+    );
+  }
+
+  // Phases: create or edit. INSERT-SELECT guards create against non-owned injuries;
+  // the conflict WHERE guards edits to phases under the user's own injuries.
+  for (const row of body.phases ?? []) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO phases (id, injury_id, phase_num, name, description, week_start, week_end, threshold_pct, deleted_at, created_at, updated_at)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+         WHERE EXISTS (SELECT 1 FROM injuries i WHERE i.id = ? AND i.user_id = ?)
+         ON CONFLICT(id) DO UPDATE SET
+           phase_num = excluded.phase_num, name = excluded.name, description = excluded.description,
+           week_start = excluded.week_start, week_end = excluded.week_end,
+           threshold_pct = excluded.threshold_pct, deleted_at = excluded.deleted_at,
+           updated_at = excluded.updated_at
+         WHERE phases.injury_id IN (SELECT id FROM injuries WHERE user_id = ?)`
+      ).bind(
+        row.id, row.injury_id, row.phase_num, row.name, row.description ?? null,
+        row.week_start, row.week_end, row.threshold_pct ?? 70, row.deleted_at ?? null, now, now,
+        row.injury_id, userId, userId
+      )
+    );
+  }
+
+  // Phase criteria: description authoring (never touches global `done`). Ownership via
+  // phase → injury → user. INSERT defaults done=0; edits never set done.
+  for (const row of body.phase_criteria ?? []) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO phase_criteria (id, phase_id, description, done, deleted_at, updated_at)
+         SELECT ?, ?, ?, 0, ?, ?
+         WHERE EXISTS (
+           SELECT 1 FROM phases p JOIN injuries i ON i.id = p.injury_id
+           WHERE p.id = ? AND i.user_id = ?
+         )
+         ON CONFLICT(id) DO UPDATE SET
+           description = excluded.description, deleted_at = excluded.deleted_at, updated_at = excluded.updated_at
+         WHERE phase_criteria.phase_id IN (
+           SELECT p.id FROM phases p JOIN injuries i ON i.id = p.injury_id WHERE i.user_id = ?
+         )`
+      ).bind(row.id, row.phase_id, row.description, row.deleted_at ?? null, now, row.phase_id, userId, userId)
     );
   }
 

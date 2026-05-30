@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS phases (
   week_start INTEGER NOT NULL,
   week_end INTEGER NOT NULL,
   threshold_pct INTEGER NOT NULL DEFAULT 70,
+  deleted_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -50,6 +51,7 @@ CREATE TABLE IF NOT EXISTS phase_criteria (
   phase_id TEXT NOT NULL REFERENCES phases(id),
   description TEXT NOT NULL,
   done INTEGER NOT NULL DEFAULT 0,
+  deleted_at INTEGER,
   updated_at INTEGER NOT NULL
 );
 

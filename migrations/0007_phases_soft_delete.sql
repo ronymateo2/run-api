@@ -1,0 +1,1 @@
+ALTER TABLE phases ADD COLUMN deleted_at INTEGER;
