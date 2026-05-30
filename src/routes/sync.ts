@@ -13,33 +13,33 @@ const MAX_ROWS = 1000;
 
 const painCheckinSchema = z.object({
   id: z.string().min(1),
-  injury_id: z.string().optional(),
+  injury_id: z.string().nullish(),
   date: z.string().min(1),
   zones: z.string(),
-  created_at: z.number().optional(),
+  created_at: z.number().nullish(),
 });
 
 const exerciseLogSchema = z.object({
   id: z.string().min(1),
   exercise_id: z.string().min(1),
   session_date: z.string().min(1),
-  reps_done: z.number().optional(),
-  pain_during: z.number().optional(),
-  rpe: z.number().min(0).max(10).optional(),
-  note: z.string().optional(),
-  completed_at: z.number().optional(),
-  deleted_at: z.number().optional(),
-  created_at: z.number().optional(),
+  reps_done: z.number().nullish(),
+  pain_during: z.number().nullish(),
+  rpe: z.number().min(0).max(10).nullish(),
+  note: z.string().nullish(),
+  completed_at: z.number().nullish(),
+  deleted_at: z.number().nullish(),
+  created_at: z.number().nullish(),
 });
 
 const sstResultSchema = z.object({
   id: z.string().min(1),
   injury_id: z.string().min(1),
   date: z.string().min(1),
-  strength_score: z.number().optional(),
-  pain_score: z.number().optional(),
-  note: z.string().optional(),
-  created_at: z.number().optional(),
+  strength_score: z.number().nullish(),
+  pain_score: z.number().nullish(),
+  note: z.string().nullish(),
+  created_at: z.number().nullish(),
 });
 
 const criteriaDoneSchema = z.object({

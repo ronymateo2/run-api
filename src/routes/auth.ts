@@ -16,13 +16,18 @@ const auth = new Hono<{ Bindings: Bindings }>();
 
 async function verifyGoogleToken(idToken: string, clientId: string) {
   const res = await fetch(
-    `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
+    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
   );
   if (!res.ok) throw new Error("Invalid Google token");
   const payload = await res.json() as {
     sub: string; email: string; name: string; picture: string; aud: string;
+    iss: string; email_verified: string | boolean;
   };
   if (payload.aud !== clientId) throw new Error("Token audience mismatch");
+  if (!["accounts.google.com", "https://accounts.google.com"].includes(payload.iss))
+    throw new Error("Invalid token issuer");
+  if (payload.email_verified !== "true" && payload.email_verified !== true)
+    throw new Error("Email not verified");
   return payload;
 }
 
