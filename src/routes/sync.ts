@@ -67,6 +67,20 @@ const phaseSchema = z.object({
   deleted_at: z.number().nullish(),
 });
 
+// Exercise authoring: full row upsert. Ownership via exercise → phase → injury → user.
+const exerciseSchema = z.object({
+  id: z.string().min(1),
+  phase_id: z.string().min(1),
+  name: z.string().min(1),
+  detail: z.string().nullish(),
+  sets: z.number().nullish(),
+  reps: z.number().nullish(),
+  duration_s: z.number().nullish(),
+  exercise_type: z.enum(["isometric", "strength", "mobility", "cardio"]),
+  sort_order: z.number().nullish(),
+  video_url: z.string().nullish(),
+});
+
 // No `done` field: per-user done state flows through criteria_done → user_criteria_done.
 const phaseCriteriaSchema = z.object({
   id: z.string().min(1),
@@ -84,6 +98,7 @@ const pushSchema = z.object({
   criteria_done: z.array(criteriaDoneSchema).max(MAX_ROWS).optional(),
   injuries: z.array(injuryEditSchema).max(MAX_ROWS).optional(),
   phases: z.array(phaseSchema).max(MAX_ROWS).optional(),
+  exercises: z.array(exerciseSchema).max(MAX_ROWS).optional(),
   phase_criteria: z.array(phaseCriteriaSchema).max(MAX_ROWS).optional(),
 });
 
@@ -224,6 +239,33 @@ sync.post("/push", zValidator("json", pushSchema), async (c) => {
         row.id, row.injury_id, row.phase_num, row.name, row.description ?? null,
         row.week_start, row.week_end, row.threshold_pct ?? 70, row.deleted_at ?? null, now, now,
         row.injury_id, userId, userId
+      )
+    );
+  }
+
+  // Exercises: full-row authoring. INSERT-SELECT guards create against non-owned phases;
+  // the conflict WHERE guards edits to exercises under the user's own phases.
+  for (const row of body.exercises ?? []) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO exercises (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, created_at, updated_at)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+         WHERE EXISTS (
+           SELECT 1 FROM phases p JOIN injuries i ON i.id = p.injury_id
+           WHERE p.id = ? AND i.user_id = ?
+         )
+         ON CONFLICT(id) DO UPDATE SET
+           phase_id = excluded.phase_id, name = excluded.name, detail = excluded.detail,
+           sets = excluded.sets, reps = excluded.reps, duration_s = excluded.duration_s,
+           exercise_type = excluded.exercise_type, sort_order = excluded.sort_order,
+           video_url = excluded.video_url, updated_at = excluded.updated_at
+         WHERE exercises.phase_id IN (
+           SELECT p.id FROM phases p JOIN injuries i ON i.id = p.injury_id WHERE i.user_id = ?
+         )`
+      ).bind(
+        row.id, row.phase_id, row.name, row.detail ?? null, row.sets ?? null, row.reps ?? null,
+        row.duration_s ?? null, row.exercise_type, row.sort_order ?? 0, row.video_url ?? null, now, now,
+        row.phase_id, userId, userId
       )
     );
   }
