@@ -1,10 +1,60 @@
 import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
 import { authMiddleware } from "../middleware/auth";
 
 type Variables = { userId: string; email: string };
 
 const sync = new Hono<{ Bindings: Env; Variables: Variables }>();
 sync.use("*", authMiddleware);
+
+// Cap each batch so a client can't push an unbounded array in one request.
+const MAX_ROWS = 1000;
+
+const painCheckinSchema = z.object({
+  id: z.string().min(1),
+  injury_id: z.string().optional(),
+  date: z.string().min(1),
+  zones: z.string(),
+  created_at: z.number().optional(),
+});
+
+const exerciseLogSchema = z.object({
+  id: z.string().min(1),
+  exercise_id: z.string().min(1),
+  session_date: z.string().min(1),
+  reps_done: z.number().optional(),
+  pain_during: z.number().optional(),
+  rpe: z.number().min(0).max(10).optional(),
+  note: z.string().optional(),
+  completed_at: z.number().optional(),
+  deleted_at: z.number().optional(),
+  created_at: z.number().optional(),
+});
+
+const sstResultSchema = z.object({
+  id: z.string().min(1),
+  injury_id: z.string().min(1),
+  date: z.string().min(1),
+  strength_score: z.number().optional(),
+  pain_score: z.number().optional(),
+  note: z.string().optional(),
+  created_at: z.number().optional(),
+});
+
+const criteriaDoneSchema = z.object({
+  criteria_id: z.string().min(1),
+  done: z.boolean(),
+});
+
+// Unknown keys (user_id, synced, updated_at from the client's SELECT *) are
+// stripped by zod's default object parsing — the server never trusts them.
+const pushSchema = z.object({
+  pain_checkins: z.array(painCheckinSchema).max(MAX_ROWS).optional(),
+  exercise_logs: z.array(exerciseLogSchema).max(MAX_ROWS).optional(),
+  sst_results: z.array(sstResultSchema).max(MAX_ROWS).optional(),
+  criteria_done: z.array(criteriaDoneSchema).max(MAX_ROWS).optional(),
+});
 
 // GET /sync/pull?since=<unix_ms>
 // Returns all user rows updated after `since`
@@ -64,14 +114,9 @@ sync.get("/pull", async (c) => {
 
 // POST /sync/push
 // Upserts local rows into D1
-sync.post("/push", async (c) => {
+sync.post("/push", zValidator("json", pushSchema), async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json<{
-    pain_checkins?: PainCheckinRow[];
-    exercise_logs?: ExerciseLogRow[];
-    sst_results?: SstResultRow[];
-    criteria_done?: CriteriaDoneRow[];
-  }>();
+  const body = c.req.valid("json");
 
   const now = Date.now();
   const statements: D1PreparedStatement[] = [];
@@ -125,22 +170,5 @@ sync.post("/push", async (c) => {
 
   return c.json({ synced: statements.length, serverTime: now });
 });
-
-// Row types for push payload
-interface PainCheckinRow {
-  id: string; injury_id?: string; date: string; zones: string; created_at?: number;
-}
-interface ExerciseLogRow {
-  id: string; exercise_id: string; session_date: string;
-  reps_done?: number; pain_during?: number; rpe?: number; note?: string;
-  completed_at?: number; deleted_at?: number; created_at?: number;
-}
-interface SstResultRow {
-  id: string; injury_id: string; date: string;
-  strength_score?: number; pain_score?: number; note?: string; created_at?: number;
-}
-interface CriteriaDoneRow {
-  criteria_id: string; done: boolean;
-}
 
 export default sync;

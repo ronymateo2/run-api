@@ -1,9 +1,14 @@
 import { Hono } from "hono";
 import { setCookie } from "hono/cookie";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
 import { SignJWT } from "jose";
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30d, matches JWT expiry
 
+const googleAuthSchema = z.object({
+  id_token: z.string().min(1),
+});
 
 type Bindings = Env;
 
@@ -35,16 +40,21 @@ async function signJwt(
     .sign(secretKey);
 }
 
-auth.post("/google", async (c) => {
-  const limiter = (c.env as Env & { AUTH_RATE_LIMITER?: RateLimit }).AUTH_RATE_LIMITER;
-  if (limiter) {
-    const ip = c.req.header("cf-connecting-ip") ?? "unknown";
-    const { success } = await limiter.limit({ key: ip });
-    if (!success) return c.json({ error: "Too many requests" }, 429);
-  }
-
-  const { id_token } = await c.req.json<{ id_token: string }>();
-  if (!id_token) return c.json({ error: "Missing id_token" }, 400);
+auth.post(
+  "/google",
+  // Rate limit before parsing so junk floods get throttled cheaply.
+  async (c, next) => {
+    const limiter = (c.env as Env & { AUTH_RATE_LIMITER?: RateLimit }).AUTH_RATE_LIMITER;
+    if (limiter) {
+      const ip = c.req.header("cf-connecting-ip") ?? "unknown";
+      const { success } = await limiter.limit({ key: ip });
+      if (!success) return c.json({ error: "Too many requests" }, 429);
+    }
+    await next();
+  },
+  zValidator("json", googleAuthSchema),
+  async (c) => {
+  const { id_token } = c.req.valid("json");
 
   let googlePayload;
   try {

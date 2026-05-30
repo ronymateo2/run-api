@@ -57,6 +57,11 @@ GOOGLE_CLIENT_ID = "<from Google Cloud Console>"
 npm run dev    # wrangler dev at localhost:8787
 ```
 
+## Input validation
+- Request bodies validated at the edge with `@hono/zod-validator` (`zValidator("json", schema)`); invalid payloads get 400 before the handler runs
+- `sync/push` arrays capped at `MAX_ROWS = 1000` each; unknown keys (`user_id`, `synced`, …) stripped by zod, never trusted
+- Note: SQLi is already prevented by D1 parameterized `.bind()`; zod is defense-in-depth + data integrity, not the SQLi defense
+
 ## Key notes
 - Injuries/phases/exercises are admin-seeded directly in D1 (no API for it)
 - Phase gating (70% threshold) enforced client-side; server is source of truth for progress data

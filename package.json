@@ -13,8 +13,10 @@
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
+    "@hono/zod-validator": "^0.8.0",
     "hono": "^4.12.23",
-    "jose": "5.10.0"
+    "jose": "5.10.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251217.0",

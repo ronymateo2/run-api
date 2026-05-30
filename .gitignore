@@ -33,3 +33,6 @@ npm-debug.log*
 
 .gstack/
 .gstack/
+
+# tsc is typecheck-only (wrangler bundles); never emit JS into src
+src/**/*.js
