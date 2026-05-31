@@ -64,6 +64,7 @@ const phaseSchema = z.object({
   week_start: z.number(),
   week_end: z.number(),
   threshold_pct: z.number().nullish(),
+  focus_days: z.string().nullish(),
   deleted_at: z.number().nullish(),
 });
 
@@ -226,18 +227,18 @@ sync.post("/push", zValidator("json", pushSchema), async (c) => {
   for (const row of body.phases ?? []) {
     statements.push(
       c.env.DB.prepare(
-        `INSERT INTO phases (id, injury_id, phase_num, name, description, week_start, week_end, threshold_pct, deleted_at, created_at, updated_at)
-         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        `INSERT INTO phases (id, injury_id, phase_num, name, description, week_start, week_end, threshold_pct, focus_days, deleted_at, created_at, updated_at)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          WHERE EXISTS (SELECT 1 FROM injuries i WHERE i.id = ? AND i.user_id = ?)
          ON CONFLICT(id) DO UPDATE SET
            phase_num = excluded.phase_num, name = excluded.name, description = excluded.description,
            week_start = excluded.week_start, week_end = excluded.week_end,
-           threshold_pct = excluded.threshold_pct, deleted_at = excluded.deleted_at,
-           updated_at = excluded.updated_at
+           threshold_pct = excluded.threshold_pct, focus_days = excluded.focus_days,
+           deleted_at = excluded.deleted_at, updated_at = excluded.updated_at
          WHERE phases.injury_id IN (SELECT id FROM injuries WHERE user_id = ?)`
       ).bind(
         row.id, row.injury_id, row.phase_num, row.name, row.description ?? null,
-        row.week_start, row.week_end, row.threshold_pct ?? 70, row.deleted_at ?? null, now, now,
+        row.week_start, row.week_end, row.threshold_pct ?? 70, row.focus_days ?? null, row.deleted_at ?? null, now, now,
         row.injury_id, userId, userId
       )
     );

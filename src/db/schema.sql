@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS phases (
   week_start INTEGER NOT NULL,
   week_end INTEGER NOT NULL,
   threshold_pct INTEGER NOT NULL DEFAULT 70,
+  focus_days TEXT,
   deleted_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
