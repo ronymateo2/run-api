@@ -10,6 +10,8 @@
     "db:create": "wrangler d1 create rurana-db",
     "db:migrate:local": "wrangler d1 migrations apply rurana-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply rurana-db --remote",
+    "seed:neck:local": "wrangler d1 execute rurana-db --local --file=seeds/neck.sql",
+    "seed:neck:remote": "wrangler d1 execute rurana-db --remote --file=seeds/neck.sql",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
