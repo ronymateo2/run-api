@@ -201,16 +201,6 @@ sync.post("/push", zValidator("json", pushSchema), async (c) => {
     );
   }
 
-  for (const row of body.criteria_done ?? []) {
-    statements.push(
-      c.env.DB.prepare(
-        `INSERT INTO user_criteria_done (user_id, criteria_id, done, updated_at)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(user_id, criteria_id) DO UPDATE SET done = excluded.done, updated_at = excluded.updated_at`
-      ).bind(userId, row.criteria_id, row.done ? 1 : 0, now)
-    );
-  }
-
   // Injuries: only current_phase_id + focus_days are client-editable. UPDATE-only
   // (no create) and scoped to the owner — name/zone/status/user_id never change.
   for (const row of body.injuries ?? []) {
@@ -288,6 +278,19 @@ sync.post("/push", zValidator("json", pushSchema), async (c) => {
            SELECT p.id FROM phases p JOIN injuries i ON i.id = p.injury_id WHERE i.user_id = ?
          )`
       ).bind(row.id, row.phase_id, row.description, row.deleted_at ?? null, now, row.phase_id, userId, userId)
+    );
+  }
+
+  // criteria_done last: user_criteria_done.criteria_id FKs phase_criteria(id), so the
+  // phase_criteria row above must exist first — otherwise a new criterion's done row
+  // hits an FK violation and D1 rejects the whole batch.
+  for (const row of body.criteria_done ?? []) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO user_criteria_done (user_id, criteria_id, done, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id, criteria_id) DO UPDATE SET done = excluded.done, updated_at = excluded.updated_at`
+      ).bind(userId, row.criteria_id, row.done ? 1 : 0, now)
     );
   }
 
