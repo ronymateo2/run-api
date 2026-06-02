@@ -12,6 +12,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply rurana-db --remote",
     "seed:neck:local": "wrangler d1 execute rurana-db --local --file=seeds/neck.sql",
     "seed:neck:remote": "wrangler d1 execute rurana-db --remote --file=seeds/neck.sql",
+    "seed:history:local": "wrangler d1 execute rurana-db --local --file=seeds/history_demo.sql",
+    "seed:history:remote": "wrangler d1 execute rurana-db --remote --file=seeds/history_demo.sql",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
