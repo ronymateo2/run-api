@@ -13,7 +13,7 @@ Cloudflare Worker + Hono + D1. Auth, sync, and phase data for the Rurana PWA.
 POST /api/auth/google       { id_token } → { user }   (sets httpOnly session cookie)
 POST /api/auth/logout       → { ok }               (clears session cookie)
 GET  /api/users/me          → { user }         (auth required)
-GET  /api/sync/pull?since=  → delta payload    (auth required)
+GET  /api/sync/pull?since=&windowDays=&cursor=  → paginated delta (auth required; loop cursor until done)
 POST /api/sync/push         { pain_checkins, exercise_logs, sst_results } (auth required)
 GET  /api/phases            → { injuries, phases } (auth required)
 GET  /health                → { ok: true }

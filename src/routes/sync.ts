@@ -103,60 +103,153 @@ const pushSchema = z.object({
   phase_criteria: z.array(phaseCriteriaSchema).max(MAX_ROWS).optional(),
 });
 
-// GET /sync/pull?since=<unix_ms>
-// Returns all user rows updated after `since`
+// Paginated, windowed streams (drained in this order). Reference tables (injuries,
+// phases, exercises, phase_criteria) ride only the first page, full delta.
+const PAGE_LIMIT = 500;
+const STREAMS = ["log_day_counts", "exercise_logs", "pain_checkins", "sst_results"] as const;
+type Stream = typeof STREAMS[number];
+
+type Cursor = { s: number; ua: number; id: string };
+
+// Fetch up to `limit` rows of a paginated stream. `cua`/`cid` are the keyset
+// position (updated_at, id); the first page of a stream starts at (since, "").
+async function queryStream(
+  db: D1Database, name: Stream, userId: string, since: number,
+  windowStart: string, cua: number, cid: string, limit: number,
+): Promise<Record<string, unknown>[]> {
+  if (name === "log_day_counts") {
+    // All-time rollup: one row per (exercise, day) with its non-deleted set count.
+    // A group's "updated_at" is the max over its rows; only changed groups ship.
+    const r = await db.prepare(
+      `SELECT user_id, exercise_id, session_date,
+              SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END) AS sets,
+              MAX(updated_at) AS updated_at
+       FROM exercise_logs WHERE user_id = ?
+       GROUP BY user_id, exercise_id, session_date
+       HAVING MAX(updated_at) > ?
+          AND ( MAX(updated_at) > ?
+                OR (MAX(updated_at) = ? AND exercise_id || '|' || session_date > ?) )
+       ORDER BY updated_at, exercise_id, session_date
+       LIMIT ?`
+    ).bind(userId, since, cua, cua, cid, limit).all();
+    return r.results as Record<string, unknown>[];
+  }
+  // Raw rows, capped to the recent window. `name` is from the fixed STREAMS list.
+  const dateCol = name === "exercise_logs" ? "session_date" : "date";
+  const r = await db.prepare(
+    `SELECT * FROM ${name}
+     WHERE user_id = ? AND updated_at > ? AND ${dateCol} >= ?
+       AND ( updated_at > ? OR (updated_at = ? AND id > ?) )
+     ORDER BY updated_at, id LIMIT ?`
+  ).bind(userId, since, windowStart, cua, cua, cid, limit).all();
+  return r.results as Record<string, unknown>[];
+}
+
+function rowKey(name: Stream, row: Record<string, unknown>): string {
+  return name === "log_day_counts"
+    ? `${row.exercise_id}|${row.session_date}`
+    : String(row.id);
+}
+
+// GET /sync/pull?since=<unix_ms>&windowDays=<n>&cursor=<token>
+// Delta pull. Reference tables on the first page; raw logs/checkins/sst windowed
+// to the last `windowDays`; the all-time rollup keeps progress correct. The client
+// loops the cursor until `done`.
+const HISTORY_TABLES = ["exercise_logs", "pain_checkins", "sst_results"] as const;
+
 sync.get("/pull", async (c) => {
   const userId = c.get("userId");
+
+  // On-demand history: raw rows for one day outside the sync window. Ignores the
+  // `since` watermark and never advances it — purely a cache fill for old data.
+  if (c.req.query("mode") === "history") {
+    const table = c.req.query("table");
+    const date = c.req.query("date");
+    if (!date || !HISTORY_TABLES.includes(table as typeof HISTORY_TABLES[number])) {
+      return c.json({ error: "bad history request" }, 400);
+    }
+    const dateCol = table === "exercise_logs" ? "session_date" : "date";
+    const r = await c.env.DB.prepare(
+      `SELECT * FROM ${table} WHERE user_id = ? AND ${dateCol} = ?`
+    ).bind(userId, date).all();
+    return c.json({ [table as string]: r.results });
+  }
+
   const since = Number(c.req.query("since") ?? 0);
+  const windowDays = Number(c.req.query("windowDays") ?? 120);
+  const cursorRaw = c.req.query("cursor");
 
-  const [checkins, logs, sst, injuries, phases, exercises, phaseCriteria] = await Promise.all([
-    c.env.DB.prepare(
-      `SELECT * FROM pain_checkins WHERE user_id = ? AND updated_at > ?`
-    ).bind(userId, since).all(),
-    c.env.DB.prepare(
-      `SELECT * FROM exercise_logs WHERE user_id = ? AND updated_at > ?`
-    ).bind(userId, since).all(),
-    c.env.DB.prepare(
-      `SELECT * FROM sst_results WHERE user_id = ? AND updated_at > ?`
-    ).bind(userId, since).all(),
-    c.env.DB.prepare(
-      `SELECT * FROM injuries WHERE user_id = ? AND updated_at > ?`
-    ).bind(userId, since).all(),
-    c.env.DB.prepare(
-      `SELECT p.* FROM phases p
-       JOIN injuries i ON i.id = p.injury_id
-       WHERE i.user_id = ? AND p.updated_at > ?`
-    ).bind(userId, since).all(),
-    c.env.DB.prepare(
-      `SELECT e.* FROM exercises e
-       JOIN phases p ON p.id = e.phase_id
-       JOIN injuries i ON i.id = p.injury_id
-       WHERE i.user_id = ? AND e.updated_at > ?`
-    ).bind(userId, since).all(),
-    c.env.DB.prepare(
-      `SELECT pc.id, pc.phase_id, pc.description, pc.deleted_at,
-              COALESCE(ucd.done, pc.done) AS done,
-              CASE WHEN COALESCE(ucd.updated_at, 0) > pc.updated_at
-                   THEN ucd.updated_at ELSE pc.updated_at END AS updated_at
-       FROM phase_criteria pc
-       LEFT JOIN user_criteria_done ucd ON ucd.criteria_id = pc.id AND ucd.user_id = ?
-       JOIN phases p ON p.id = pc.phase_id
-       JOIN injuries i ON i.id = p.injury_id
-       WHERE i.user_id = ?
-         AND (pc.updated_at > ? OR COALESCE(ucd.updated_at, 0) > ?)`
-    ).bind(userId, userId, since, since).all(),
-  ]);
+  const windowStart = new Date(Date.now() - windowDays * 86400000).toISOString().slice(0, 10);
 
-  return c.json({
-    serverTime: Date.now(),
-    pain_checkins: checkins.results,
-    exercise_logs: logs.results,
-    sst_results: sst.results,
-    injuries: injuries.results,
-    phases: phases.results,
-    exercises: exercises.results,
-    phase_criteria: phaseCriteria.results,
-  });
+  const isFirstPage = !cursorRaw;
+  let cur: Cursor = { s: 0, ua: since, id: "" };
+  if (cursorRaw) {
+    try { cur = JSON.parse(atob(cursorRaw)) as Cursor; }
+    catch { return c.json({ error: "bad cursor" }, 400); }
+  }
+
+  const payload: Record<string, unknown> = { serverTime: Date.now() };
+
+  // Reference tables: small, full delta, first page only.
+  if (isFirstPage) {
+    const [injuries, phases, exercises, phaseCriteria] = await Promise.all([
+      c.env.DB.prepare(
+        `SELECT * FROM injuries WHERE user_id = ? AND updated_at > ?`
+      ).bind(userId, since).all(),
+      c.env.DB.prepare(
+        `SELECT p.* FROM phases p
+         JOIN injuries i ON i.id = p.injury_id
+         WHERE i.user_id = ? AND p.updated_at > ?`
+      ).bind(userId, since).all(),
+      c.env.DB.prepare(
+        `SELECT e.* FROM exercises e
+         JOIN phases p ON p.id = e.phase_id
+         JOIN injuries i ON i.id = p.injury_id
+         WHERE i.user_id = ? AND e.updated_at > ?`
+      ).bind(userId, since).all(),
+      c.env.DB.prepare(
+        `SELECT pc.id, pc.phase_id, pc.description, pc.deleted_at,
+                COALESCE(ucd.done, pc.done) AS done,
+                CASE WHEN COALESCE(ucd.updated_at, 0) > pc.updated_at
+                     THEN ucd.updated_at ELSE pc.updated_at END AS updated_at
+         FROM phase_criteria pc
+         LEFT JOIN user_criteria_done ucd ON ucd.criteria_id = pc.id AND ucd.user_id = ?
+         JOIN phases p ON p.id = pc.phase_id
+         JOIN injuries i ON i.id = p.injury_id
+         WHERE i.user_id = ?
+           AND (pc.updated_at > ? OR COALESCE(ucd.updated_at, 0) > ?)`
+      ).bind(userId, userId, since, since).all(),
+    ]);
+    payload.injuries = injuries.results;
+    payload.phases = phases.results;
+    payload.exercises = exercises.results;
+    payload.phase_criteria = phaseCriteria.results;
+  }
+
+  // Drain streams in order against one page budget: a small dataset finishes in a
+  // single request, while a deep history splits across requests bounded by PAGE_LIMIT.
+  // The cursor parks on whichever stream consumed the budget; a drained stream just
+  // advances to the next one's start (ua=since, id="").
+  let s = cur.s, ua = cur.ua, id = cur.id;
+  let budget = PAGE_LIMIT;
+  let nextCursor: string | null = null;
+
+  while (s < STREAMS.length) {
+    const name = STREAMS[s];
+    const rows = await queryStream(c.env.DB, name, userId, since, windowStart, ua, id, budget);
+    payload[name] = rows;
+    if (rows.length === budget) {
+      const last = rows[rows.length - 1];
+      nextCursor = btoa(JSON.stringify({ s, ua: Number(last.updated_at), id: rowKey(name, last) }));
+      break;
+    }
+    budget -= rows.length;
+    s++; ua = since; id = "";
+  }
+
+  payload.nextCursor = nextCursor;
+  payload.done = nextCursor === null;
+  return c.json(payload);
 });
 
 // POST /sync/push
