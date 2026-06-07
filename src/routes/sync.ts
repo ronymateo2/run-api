@@ -42,6 +42,17 @@ const sstResultSchema = z.object({
   created_at: z.number().nullish(),
 });
 
+const promResultSchema = z.object({
+  id: z.string().min(1),
+  injury_id: z.string().min(1),
+  instrument_id: z.string().min(1),
+  date: z.string().min(1),
+  score: z.number().nullish(),
+  answers: z.string().nullish(),
+  note: z.string().nullish(),
+  created_at: z.number().nullish(),
+});
+
 const criteriaDoneSchema = z.object({
   criteria_id: z.string().min(1),
   done: z.boolean(),
@@ -96,6 +107,7 @@ const pushSchema = z.object({
   pain_checkins: z.array(painCheckinSchema).max(MAX_ROWS).optional(),
   exercise_logs: z.array(exerciseLogSchema).max(MAX_ROWS).optional(),
   sst_results: z.array(sstResultSchema).max(MAX_ROWS).optional(),
+  prom_results: z.array(promResultSchema).max(MAX_ROWS).optional(),
   criteria_done: z.array(criteriaDoneSchema).max(MAX_ROWS).optional(),
   injuries: z.array(injuryEditSchema).max(MAX_ROWS).optional(),
   phases: z.array(phaseSchema).max(MAX_ROWS).optional(),
@@ -106,7 +118,7 @@ const pushSchema = z.object({
 // Paginated, windowed streams (drained in this order). Reference tables (injuries,
 // phases, exercises, phase_criteria) ride only the first page, full delta.
 const PAGE_LIMIT = 500;
-const STREAMS = ["log_day_counts", "exercise_logs", "pain_checkins", "sst_results"] as const;
+const STREAMS = ["log_day_counts", "exercise_logs", "pain_checkins", "sst_results", "prom_results"] as const;
 type Stream = typeof STREAMS[number];
 
 type Cursor = { s: number; ua: number; id: string };
@@ -192,7 +204,7 @@ sync.get("/pull", async (c) => {
 
   // Reference tables: small, full delta, first page only.
   if (isFirstPage) {
-    const [injuries, phases, exercises, phaseCriteria] = await Promise.all([
+    const [injuries, phases, exercises, phaseCriteria, promInstruments] = await Promise.all([
       c.env.DB.prepare(
         `SELECT * FROM injuries WHERE user_id = ? AND updated_at > ?`
       ).bind(userId, since).all(),
@@ -219,11 +231,16 @@ sync.get("/pull", async (c) => {
          WHERE i.user_id = ?
            AND (pc.updated_at > ? OR COALESCE(ucd.updated_at, 0) > ?)`
       ).bind(userId, userId, since, since).all(),
+      // Global reference content (not user-scoped): every client gets the same instruments.
+      c.env.DB.prepare(
+        `SELECT * FROM prom_instruments WHERE updated_at > ?`
+      ).bind(since).all(),
     ]);
     payload.injuries = injuries.results;
     payload.phases = phases.results;
     payload.exercises = exercises.results;
     payload.phase_criteria = phaseCriteria.results;
+    payload.prom_instruments = promInstruments.results;
   }
 
   // Drain streams in order against one page budget: a small dataset finishes in a
@@ -291,6 +308,17 @@ sync.post("/push", zValidator("json", pushSchema), async (c) => {
          ON CONFLICT(id) DO UPDATE SET strength_score = excluded.strength_score, pain_score = excluded.pain_score, note = excluded.note, updated_at = excluded.updated_at
          WHERE user_id = excluded.user_id`
       ).bind(row.id, userId, row.injury_id, row.date, row.strength_score ?? null, row.pain_score ?? null, row.note ?? null, row.created_at ?? now, now)
+    );
+  }
+
+  for (const row of body.prom_results ?? []) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO prom_results (id, user_id, injury_id, instrument_id, date, score, answers, note, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET score = excluded.score, answers = excluded.answers, note = excluded.note, updated_at = excluded.updated_at
+         WHERE user_id = excluded.user_id`
+      ).bind(row.id, userId, row.injury_id, row.instrument_id, row.date, row.score ?? null, row.answers ?? null, row.note ?? null, row.created_at ?? now, now)
     );
   }
 
