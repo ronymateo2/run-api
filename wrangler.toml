@@ -11,9 +11,17 @@ binding = "DB"
 database_name = "rurana-db"
 database_id = "b11141de-140a-4e55-bbd9-4cdeb8eeacf9"
 
+[triggers]
+# Hourly — the reminder logic filters by each user's local hour + focus days.
+crons = ["0 * * * *"]
+
 [vars]
 ALLOWED_ORIGIN = "https://run-web.ronymateo.workers.dev"
 APP_URL = "https://run-web.ronymateo.workers.dev"
+VAPID_SUBJECT = "mailto:ronymateo@gmail.com"
+# Public VAPID key (base64url, uncompressed P-256 point). Private key is a secret:
+#   wrangler secret put VAPID_PRIVATE_KEY
+VAPID_PUBLIC_KEY = "BBPh4UAqOCI7vktsP9h42lT-bz9igwaU4igFAJSNHMu8FnhlEK2a8IFC_Vy4okJrwEa9o16rMEU-d1UG-P55UEQ"
 
 # Rate limit auth endpoint: 10 requests / 60s per client IP
 [[unsafe.bindings]]
