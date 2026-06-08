@@ -55,16 +55,24 @@ export async function runReminders(env: Env): Promise<void> {
     ).bind(u.id).all<PushSub>();
 
     const payload = { title: "Hora de tu rehabilitación 🌱", body: "Tus ejercicios de hoy te esperan.", url: "/today" };
+    let sent = false;
     for (const s of subs.results) {
       try {
         const status = await sendWebPush(s, payload, env);
-        if (status === 404 || status === 410) {
+        if (status >= 200 && status < 300) sent = true;
+        else if (status === 404 || status === 410) {
           await env.DB.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).bind(s.endpoint).run();
+        } else {
+          console.error("[push] unexpected status", status, "endpoint", s.endpoint.slice(0, 50));
         }
       } catch (e) {
         console.error("[push] send failed", e);
       }
     }
-    await env.DB.prepare(`UPDATE users SET reminder_last_date = ? WHERE id = ?`).bind(date, u.id).run();
+    // Only mark done if a push actually landed — otherwise a failed hour would
+    // dedup itself out and never retry.
+    if (sent) {
+      await env.DB.prepare(`UPDATE users SET reminder_last_date = ? WHERE id = ?`).bind(date, u.id).run();
+    }
   }
 }

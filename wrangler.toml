@@ -21,7 +21,7 @@ APP_URL = "https://run-web.ronymateo.workers.dev"
 VAPID_SUBJECT = "mailto:ronymateo@gmail.com"
 # Public VAPID key (base64url, uncompressed P-256 point). Private key is a secret:
 #   wrangler secret put VAPID_PRIVATE_KEY
-VAPID_PUBLIC_KEY = "BBPh4UAqOCI7vktsP9h42lT-bz9igwaU4igFAJSNHMu8FnhlEK2a8IFC_Vy4okJrwEa9o16rMEU-d1UG-P55UEQ"
+VAPID_PUBLIC_KEY = "BBP0Qx2kmvziNOKpLU2AIgFGE-9a-IwcPWtwGOeeOysq-aUJhE4OiQSR15tMvsvCCPNENbCPUFPKlosR9ct12Qk"
 
 # Rate limit auth endpoint: 10 requests / 60s per client IP
 [[unsafe.bindings]]
