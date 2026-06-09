@@ -28,9 +28,11 @@ export async function runReminders(env: Env): Promise<void> {
      WHERE u.reminder_enabled = 1`,
   ).all<DueUser>();
 
+  console.log("[reminders] tick", new Date().toISOString(), "users:", users.results.length);
   for (const u of users.results) {
     const tz = u.timezone || "UTC";
     const { hour, weekday, date } = localParts(tz);
+    console.log("[reminders] user", u.id.slice(0, 8), { tz, localHour: hour, reminder_hour: u.reminder_hour ?? 8, weekday, date, last: u.reminder_last_date });
     if (hour !== (u.reminder_hour ?? 8)) continue;
     if (u.reminder_last_date === date) continue; // already sent today
 
