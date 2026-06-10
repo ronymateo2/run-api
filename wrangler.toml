@@ -29,3 +29,11 @@ name = "AUTH_RATE_LIMITER"
 type = "ratelimit"
 namespace_id = "1001"
 simple = { limit = 10, period = 60 }
+
+# Rate limit sync endpoints: 120 requests / 60s per user. A sync cycle is one push
+# + a few pull pages; this only throttles runaway retry loops.
+[[unsafe.bindings]]
+name = "SYNC_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 120, period = 60 }

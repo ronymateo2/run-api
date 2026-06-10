@@ -14,7 +14,9 @@ POST /api/auth/google       { id_token } → { user }   (sets httpOnly session c
 POST /api/auth/logout       → { ok }               (clears session cookie)
 GET  /api/users/me          → { user }         (auth required)
 GET  /api/sync/pull?since=&windowDays=&cursor=  → paginated delta (auth required; loop cursor until done)
-POST /api/sync/push         { pain_checkins, exercise_logs, sst_results } (auth required)
+POST /api/sync/push         { pain_checkins, exercise_logs, sst_results, prom_results, injuries, phases, exercises, phase_criteria, criteria_done } (auth required)
+                            → { synced, serverTime, results } — results = per-row status arrays
+                              ("applied" | "stale" | "rejected" | "invalid"), aligned with input order
 GET  /api/phases            → { injuries, phases } (auth required)
 GET  /health                → { ok: true }
 ```
@@ -59,10 +61,15 @@ npm run dev    # wrangler dev at localhost:8787
 
 ## Input validation
 - Request bodies validated at the edge with `@hono/zod-validator` (`zValidator("json", schema)`); invalid payloads get 400 before the handler runs
-- `sync/push` arrays capped at `MAX_ROWS = 1000` each; unknown keys (`user_id`, `synced`, …) stripped by zod, never trusted
+- EXCEPTION `sync/push`: validates PER ROW with `safeParse` — a bad row gets status "invalid" in the response instead of 400ing the whole batch (poison-pill protection). Arrays still capped at `MAX_ROWS = 1000` each; unknown keys (`user_id`, `synced`, …) stripped by zod, never trusted
 - Note: SQLi is already prevented by D1 parameterized `.bind()`; zod is defense-in-depth + data integrity, not the SQLi defense
 
 ## Key notes
+- **Sync LWW**: every pushed table carries `client_updated_at` (ms, stamped client-side at enqueue). Conflict updates apply only when `excluded.client_updated_at >= stored` (NULL = old client = always applies). Stale edits → changes=0 → status "stale"/"rejected" per table policy in `TABLE_SPECS`.
+- **Guards never throw**: ownership/parent checks are `INSERT … SELECT … WHERE EXISTS` (incl. `criteria_done`), so a miss is changes=0 (reported per row), not an FK violation that rolls back the whole D1 batch.
+- **`log_day_counts` is a real D1 table** (migration 0014) maintained by the push (per-group recount in the same batch); the pull reads it with a keyset cursor instead of GROUP BY-ing the user's full history.
+- **Rate limits**: auth 10/60s per IP (`AUTH_RATE_LIMITER`), sync 120/60s per user (`SYNC_RATE_LIMITER`).
+- Pull cursor embeds `ws` (windowStart) so multi-page pulls crossing midnight stay consistent.
 - Injuries/phases/exercises are admin-seeded directly in D1 (no API for it)
 - Phase gating (70% threshold) enforced client-side; server is source of truth for progress data
 - `synced` column exists only in local SQLite (run-web), not in D1 schema
