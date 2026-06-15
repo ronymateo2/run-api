@@ -42,6 +42,7 @@ const exerciseLogSchema = z.object({
   pain_during: z.number().nullish(),
   rpe: z.number().min(0).max(10).nullish(),
   note: z.string().nullish(),
+  set_type: z.enum(["normal", "warmup"]).nullish(),
   completed_at: z.number().nullish(),
   deleted_at: z.number().nullish(),
   created_at: z.number().nullish(),
@@ -171,16 +172,17 @@ const TABLE_SPECS: TableSpec[] = [
     onZeroChanges: "stale",
     build: (db, row, userId, now) =>
       db.prepare(
-        `INSERT INTO exercise_logs (id, user_id, exercise_id, session_date, reps_done, pain_during, rpe, note, completed_at, deleted_at, created_at, updated_at, client_updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO exercise_logs (id, user_id, exercise_id, session_date, reps_done, pain_during, rpe, note, set_type, completed_at, deleted_at, created_at, updated_at, client_updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            reps_done = excluded.reps_done, pain_during = excluded.pain_during, rpe = excluded.rpe,
-           note = excluded.note, completed_at = excluded.completed_at, deleted_at = excluded.deleted_at,
+           note = excluded.note, set_type = excluded.set_type,
+           completed_at = excluded.completed_at, deleted_at = excluded.deleted_at,
            updated_at = excluded.updated_at, client_updated_at = excluded.client_updated_at
          WHERE user_id = excluded.user_id
            AND (excluded.client_updated_at IS NULL OR excluded.client_updated_at >= COALESCE(exercise_logs.client_updated_at, 0))`
       ).bind(row.id, userId, row.exercise_id, row.session_date, row.reps_done ?? null, row.pain_during ?? null,
-             row.rpe ?? null, row.note ?? null, row.completed_at ?? null, row.deleted_at ?? null,
+             row.rpe ?? null, row.note ?? null, row.set_type ?? "normal", row.completed_at ?? null, row.deleted_at ?? null,
              row.created_at ?? now, now, row.client_updated_at ?? null),
   },
   {
@@ -543,7 +545,8 @@ sync.post("/push", async (c) => {
         `INSERT INTO log_day_counts (user_id, exercise_id, session_date, sets, updated_at)
          VALUES (?, ?, ?,
            (SELECT COUNT(*) FROM exercise_logs
-            WHERE user_id = ? AND exercise_id = ? AND session_date = ? AND deleted_at IS NULL),
+            WHERE user_id = ? AND exercise_id = ? AND session_date = ? AND deleted_at IS NULL
+              AND set_type != 'warmup'),
            ?)
          ON CONFLICT(user_id, exercise_id, session_date) DO UPDATE SET
            sets = excluded.sets, updated_at = excluded.updated_at`

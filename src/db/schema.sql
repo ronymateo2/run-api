@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS exercise_logs (
   pain_during INTEGER,
   rpe INTEGER,
   note TEXT,
+  set_type TEXT NOT NULL DEFAULT 'normal',
   completed_at INTEGER,
   deleted_at INTEGER,
   created_at INTEGER NOT NULL,
