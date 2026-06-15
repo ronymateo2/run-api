@@ -1,0 +1,1 @@
+ALTER TABLE exercises ADD COLUMN warmup_sets INTEGER NOT NULL DEFAULT 0;
