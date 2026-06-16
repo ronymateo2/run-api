@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS exercises (
   how_to TEXT,
   warmup_sets INTEGER NOT NULL DEFAULT 0,
   archived_at INTEGER,
+  equipment_type TEXT NOT NULL DEFAULT 'none',
+  target_rpe INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -104,6 +106,8 @@ CREATE TABLE IF NOT EXISTS exercise_logs (
   set_type TEXT NOT NULL DEFAULT 'normal',
   completed_at INTEGER,
   deleted_at INTEGER,
+  load REAL,
+  band TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );

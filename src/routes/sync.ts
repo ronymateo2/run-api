@@ -45,6 +45,8 @@ const exerciseLogSchema = z.object({
   set_type: z.enum(["normal", "warmup"]).nullish(),
   completed_at: z.number().nullish(),
   deleted_at: z.number().nullish(),
+  load: z.number().nullish(),
+  band: z.string().nullish(),
   created_at: z.number().nullish(),
   client_updated_at: z.number().nullish(),
 });
@@ -118,6 +120,8 @@ const exerciseSchema = z.object({
   how_to: z.string().nullish(),
   warmup_sets: z.number().nullish(),
   archived_at: z.number().nullish(),
+  equipment_type: z.enum(["none", "weight", "band"]).nullish(),
+  target_rpe: z.number().nullish(),
   client_updated_at: z.number().nullish(),
 });
 
@@ -175,17 +179,19 @@ const TABLE_SPECS: TableSpec[] = [
     onZeroChanges: "stale",
     build: (db, row, userId, now) =>
       db.prepare(
-        `INSERT INTO exercise_logs (id, user_id, exercise_id, session_date, reps_done, pain_during, rpe, note, set_type, completed_at, deleted_at, created_at, updated_at, client_updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO exercise_logs (id, user_id, exercise_id, session_date, reps_done, pain_during, rpe, note, set_type, completed_at, deleted_at, load, band, created_at, updated_at, client_updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            reps_done = excluded.reps_done, pain_during = excluded.pain_during, rpe = excluded.rpe,
            note = excluded.note, set_type = excluded.set_type,
            completed_at = excluded.completed_at, deleted_at = excluded.deleted_at,
+           load = excluded.load, band = excluded.band,
            updated_at = excluded.updated_at, client_updated_at = excluded.client_updated_at
          WHERE user_id = excluded.user_id
            AND (excluded.client_updated_at IS NULL OR excluded.client_updated_at >= COALESCE(exercise_logs.client_updated_at, 0))`
       ).bind(row.id, userId, row.exercise_id, row.session_date, row.reps_done ?? null, row.pain_during ?? null,
              row.rpe ?? null, row.note ?? null, row.set_type ?? "normal", row.completed_at ?? null, row.deleted_at ?? null,
+             row.load ?? null, row.band ?? null,
              row.created_at ?? now, now, row.client_updated_at ?? null),
   },
   {
@@ -267,8 +273,8 @@ const TABLE_SPECS: TableSpec[] = [
     onZeroChanges: "rejected",
     build: (db, row, userId, now) =>
       db.prepare(
-        `INSERT INTO exercises (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, how_to, warmup_sets, archived_at, created_at, updated_at, client_updated_at)
-         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        `INSERT INTO exercises (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, how_to, warmup_sets, archived_at, equipment_type, target_rpe, created_at, updated_at, client_updated_at)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          WHERE EXISTS (
            SELECT 1 FROM phases p JOIN injuries i ON i.id = p.injury_id
            WHERE p.id = ? AND i.user_id = ?
@@ -278,7 +284,7 @@ const TABLE_SPECS: TableSpec[] = [
            sets = excluded.sets, reps = excluded.reps, duration_s = excluded.duration_s,
            exercise_type = excluded.exercise_type, sort_order = excluded.sort_order,
            video_url = excluded.video_url, how_to = excluded.how_to, warmup_sets = excluded.warmup_sets,
-           archived_at = excluded.archived_at,
+           archived_at = excluded.archived_at, equipment_type = excluded.equipment_type, target_rpe = excluded.target_rpe,
            updated_at = excluded.updated_at, client_updated_at = excluded.client_updated_at
          WHERE exercises.phase_id IN (
            SELECT p.id FROM phases p JOIN injuries i ON i.id = p.injury_id WHERE i.user_id = ?
@@ -287,7 +293,8 @@ const TABLE_SPECS: TableSpec[] = [
       ).bind(
         row.id, row.phase_id, row.name, row.detail ?? null, row.sets ?? null, row.reps ?? null,
         row.duration_s ?? null, row.exercise_type, row.sort_order ?? 0, row.video_url ?? null,
-        row.how_to ?? null, row.warmup_sets ?? 0, row.archived_at ?? null, now, now, row.client_updated_at ?? null,
+        row.how_to ?? null, row.warmup_sets ?? 0, row.archived_at ?? null,
+        row.equipment_type ?? "none", row.target_rpe ?? null, now, now, row.client_updated_at ?? null,
         row.phase_id, userId, userId
       ),
   },
