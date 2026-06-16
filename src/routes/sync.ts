@@ -116,6 +116,7 @@ const exerciseSchema = z.object({
   sort_order: z.number().nullish(),
   video_url: z.string().nullish(),
   warmup_sets: z.number().nullish(),
+  archived_at: z.number().nullish(),
   client_updated_at: z.number().nullish(),
 });
 
@@ -265,8 +266,8 @@ const TABLE_SPECS: TableSpec[] = [
     onZeroChanges: "rejected",
     build: (db, row, userId, now) =>
       db.prepare(
-        `INSERT INTO exercises (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, warmup_sets, created_at, updated_at, client_updated_at)
-         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        `INSERT INTO exercises (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, warmup_sets, archived_at, created_at, updated_at, client_updated_at)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          WHERE EXISTS (
            SELECT 1 FROM phases p JOIN injuries i ON i.id = p.injury_id
            WHERE p.id = ? AND i.user_id = ?
@@ -276,6 +277,7 @@ const TABLE_SPECS: TableSpec[] = [
            sets = excluded.sets, reps = excluded.reps, duration_s = excluded.duration_s,
            exercise_type = excluded.exercise_type, sort_order = excluded.sort_order,
            video_url = excluded.video_url, warmup_sets = excluded.warmup_sets,
+           archived_at = excluded.archived_at,
            updated_at = excluded.updated_at, client_updated_at = excluded.client_updated_at
          WHERE exercises.phase_id IN (
            SELECT p.id FROM phases p JOIN injuries i ON i.id = p.injury_id WHERE i.user_id = ?
@@ -284,7 +286,7 @@ const TABLE_SPECS: TableSpec[] = [
       ).bind(
         row.id, row.phase_id, row.name, row.detail ?? null, row.sets ?? null, row.reps ?? null,
         row.duration_s ?? null, row.exercise_type, row.sort_order ?? 0, row.video_url ?? null,
-        row.warmup_sets ?? 0, now, now, row.client_updated_at ?? null,
+        row.warmup_sets ?? 0, row.archived_at ?? null, now, now, row.client_updated_at ?? null,
         row.phase_id, userId, userId
       ),
   },
