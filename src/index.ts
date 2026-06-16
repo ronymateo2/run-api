@@ -5,8 +5,6 @@ import usersRoutes from "./routes/users";
 import syncRoutes from "./routes/sync";
 import phasesRoutes from "./routes/phases";
 import learnRoutes from "./routes/learn";
-import pushRoutes from "./routes/push";
-import { runReminders } from "./lib/reminders";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -26,14 +24,7 @@ app.route("/api/users", usersRoutes);
 app.route("/api/sync", syncRoutes);
 app.route("/api/phases", phasesRoutes);
 app.route("/api/learn", learnRoutes);
-app.route("/api/push", pushRoutes);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
-// Hourly cron (wrangler.toml [triggers]) drives reminder delivery.
-export default {
-  fetch: app.fetch,
-  scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(runReminders(env));
-  },
-};
+export default app;
