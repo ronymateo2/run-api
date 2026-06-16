@@ -43,18 +43,18 @@ VALUES (
 );
 
 INSERT OR REPLACE INTO exercises
-  (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, created_at, updated_at)
+  (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, how_to, created_at, updated_at)
 VALUES
   ('ex_neck_ccf', 'ph_neck_1',
    'Flexión craneocervical ("decir que sí")',
    'Boca arriba, cabeza apoyada. Asentimiento suave de la cabeza, SIN levantarla y sin tensar el músculo del frente del cuello (esternocleidomastoideo). Biofeedback de presión ideal; alternativa barata = tensiómetro de brazalete bajo la nuca, base 20 mmHg. Progresa 22→24→26→28→30 mmHg solo cuando mantengas el patrón limpio. 2 veces al día.',
-   1, 10, 10, 'isometric', 1, NULL,
+   1, 10, 10, 'isometric', 1, NULL, NULL,
    strftime('%s','now') * 1000, strftime('%s','now') * 1000),
 
   ('ex_neck_ext_self', 'ph_neck_1',
    'Extensores — autorresistencia suave (opcional)',
    'OPCIONAL. Toalla o MANO DERECHA en la nuca (NUNCA la izquierda por la lesión SLAP). Empuje suave de la cabeza hacia atrás contra la resistencia, sostener 10 s. Sin dolor.',
-   1, 10, 10, 'isometric', 2, NULL,
+   1, 10, 10, 'isometric', 2, NULL, NULL,
    strftime('%s','now') * 1000, strftime('%s','now') * 1000);
 
 INSERT OR REPLACE INTO phase_criteria (id, phase_id, description, done, deleted_at, updated_at) VALUES
@@ -76,30 +76,30 @@ VALUES (
 );
 
 INSERT OR REPLACE INTO exercises
-  (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, created_at, updated_at)
+  (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, how_to, created_at, updated_at)
 VALUES
   ('ex_neck_flex_sit', 'ph_neck_2',
    'Control antigravedad de flexores en sedente',
    'Sentado. Movimiento iniciado por el asentimiento (no por el esternocleidomastoideo). Control excéntrico al volver. Sin dolor.',
-   1, 10, 10, 'isometric', 1, NULL,
+   1, 10, 10, 'isometric', 1, NULL, NULL,
    strftime('%s','now') * 1000, strftime('%s','now') * 1000),
 
   ('ex_neck_rot_selfresist', 'ph_neck_2',
    'Rotación auto-resistida (10–20 % esfuerzo)',
    'Co-contracción suave. Solo 10–20 % de esfuerzo. Usa la mano derecha o resistencia mínima para no cargar el hombro izquierdo.',
-   1, 10, 5, 'isometric', 2, NULL,
+   1, 10, 5, 'isometric', 2, NULL, NULL,
    strftime('%s','now') * 1000, strftime('%s','now') * 1000),
 
   ('ex_neck_scap', 'ph_neck_2',
    'Corrección escapular sostenida (Jull) — ⚠️ con luz verde',
    '⚠️ SOLO con autorización del fisio de hombro. Llevar el omóplato a ligera retracción/rotación externa, sostener 10 s. BAJA CARGA, rango corto, sin dolor. EVITAR prono con brazo y retracción resistida pesada (cargan el SLAP).',
-   1, 10, 10, 'strength', 3, NULL,
+   1, 10, 10, 'strength', 3, NULL, NULL,
    strftime('%s','now') * 1000, strftime('%s','now') * 1000),
 
   ('ex_neck_posture', 'ph_neck_2',
    'Corrección postural desde la pelvis',
    'Sentado, corregir desde la pelvis con base neutra que NO cargue el pubis. Mantener la posición escapular durante el día hasta volverla hábito.',
-   1, NULL, 60, 'mobility', 4, NULL,
+   1, NULL, 60, 'mobility', 4, NULL, NULL,
    strftime('%s','now') * 1000, strftime('%s','now') * 1000);
 
 INSERT OR REPLACE INTO phase_criteria (id, phase_id, description, done, deleted_at, updated_at) VALUES
@@ -121,18 +121,18 @@ VALUES (
 );
 
 INSERT OR REPLACE INTO exercises
-  (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, created_at, updated_at)
+  (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, how_to, created_at, updated_at)
 VALUES
   ('ex_neck_band', 'ph_neck_3',
    'Flexores con banda de caucho (ref. Ylinen) — ⚠️ supervisado',
    '⚠️ SOLO SUPERVISADO con dinamómetro. Banda a ~80 % de la fuerza isométrica máxima, 1×15 en sedente. NUNCA autoprescribir cargas altas. Solo el cuello: el componente de hombro de Ylinen está contraindicado.',
-   1, 15, NULL, 'strength', 1, NULL,
+   1, 15, NULL, 'strength', 1, NULL, NULL,
    strftime('%s','now') * 1000, strftime('%s','now') * 1000),
 
   ('ex_neck_headlift', 'ph_neck_3',
    'Levantamiento de cabeza (head lift) — ⚠️ fase tardía',
    '⚠️ Alta carga cervical. Solo en fases tardías y supervisado. No carga el hombro, pero exige progresión cuidadosa.',
-   1, 10, NULL, 'strength', 2, NULL,
+   1, 10, NULL, 'strength', 2, NULL, NULL,
    strftime('%s','now') * 1000, strftime('%s','now') * 1000);
 
 INSERT OR REPLACE INTO phase_criteria (id, phase_id, description, done, deleted_at, updated_at) VALUES
