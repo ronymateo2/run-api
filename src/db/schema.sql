@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS exercises (
   archived_at INTEGER,
   equipment_type TEXT NOT NULL DEFAULT 'none',
   target_rpe INTEGER,
+  rest_s INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
