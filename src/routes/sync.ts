@@ -124,6 +124,7 @@ const exerciseSchema = z.object({
   target_rpe: z.number().nullish(),
   rest_s: z.number().nullish(),
   rep_phases: z.string().nullish(),
+  rep_rest_s: z.number().nullish(),
   client_updated_at: z.number().nullish(),
 });
 
@@ -275,8 +276,8 @@ const TABLE_SPECS: TableSpec[] = [
     onZeroChanges: "rejected",
     build: (db, row, userId, now) =>
       db.prepare(
-        `INSERT INTO exercises (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, how_to, warmup_sets, archived_at, equipment_type, target_rpe, rest_s, rep_phases, created_at, updated_at, client_updated_at)
-         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        `INSERT INTO exercises (id, phase_id, name, detail, sets, reps, duration_s, exercise_type, sort_order, video_url, how_to, warmup_sets, archived_at, equipment_type, target_rpe, rest_s, rep_phases, rep_rest_s, created_at, updated_at, client_updated_at)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          WHERE EXISTS (
            SELECT 1 FROM phases p JOIN injuries i ON i.id = p.injury_id
            WHERE p.id = ? AND i.user_id = ?
@@ -286,7 +287,7 @@ const TABLE_SPECS: TableSpec[] = [
            sets = excluded.sets, reps = excluded.reps, duration_s = excluded.duration_s,
            exercise_type = excluded.exercise_type, sort_order = excluded.sort_order,
            video_url = excluded.video_url, how_to = excluded.how_to, warmup_sets = excluded.warmup_sets,
-           archived_at = excluded.archived_at, equipment_type = excluded.equipment_type, target_rpe = excluded.target_rpe, rest_s = excluded.rest_s, rep_phases = excluded.rep_phases,
+           archived_at = excluded.archived_at, equipment_type = excluded.equipment_type, target_rpe = excluded.target_rpe, rest_s = excluded.rest_s, rep_phases = excluded.rep_phases, rep_rest_s = excluded.rep_rest_s,
            updated_at = excluded.updated_at, client_updated_at = excluded.client_updated_at
          WHERE exercises.phase_id IN (
            SELECT p.id FROM phases p JOIN injuries i ON i.id = p.injury_id WHERE i.user_id = ?
@@ -296,7 +297,7 @@ const TABLE_SPECS: TableSpec[] = [
         row.id, row.phase_id, row.name, row.detail ?? null, row.sets ?? null, row.reps ?? null,
         row.duration_s ?? null, row.exercise_type, row.sort_order ?? 0, row.video_url ?? null,
         row.how_to ?? null, row.warmup_sets ?? 0, row.archived_at ?? null,
-        row.equipment_type ?? "none", row.target_rpe ?? null, row.rest_s ?? null, row.rep_phases ?? null, now, now, row.client_updated_at ?? null,
+        row.equipment_type ?? "none", row.target_rpe ?? null, row.rest_s ?? null, row.rep_phases ?? null, row.rep_rest_s ?? null, now, now, row.client_updated_at ?? null,
         row.phase_id, userId, userId
       ),
   },

@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS exercises (
   target_rpe INTEGER,
   rest_s INTEGER,
   rep_phases TEXT,
+  rep_rest_s INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
